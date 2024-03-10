@@ -1,136 +1,303 @@
 import axi_pkg::*;
 
-interface axi_if;
+ interface axi4_lite_interface #(
+   parameter integer C_AXI_ADDR_WIDTH = 32,
+   parameter integer C_AXI_DATA_WIDTH = 32
+)(
+    
+   // System Signals
+    wire aclk,
+    wire aclken,
+    wire aresetn,
 
-	// Read Address Channel
-	addr_t araddr;
-	logic arvalid;
-	logic arready;
-	len_t arlen;
-	size_t arsize;
-	burst_t arburst;
+   // Master Interface Write Address Ports
+    wire [C_AXI_ADDR_WIDTH-1:0]   m_axi_awaddr,
+    wire                          m_axi_awvalid,
+    wire                          m_axi_awready,
 
-	// Read Data Channel
-	data_t rdata;
-	resp_t rresp;
-	logic rvalid;
-	logic rready;
-	logic rlast;
+   // Master Interface Write Data Ports
+    wire [C_AXI_DATA_WIDTH-1:0]   m_axi_wdata,
+    wire [C_AXI_DATA_WIDTH/8-1:0] m_axi_wstrb,
+    wire                          m_axi_wvalid,
+    wire                          m_axi_wready,
 
-	// Write Address Channel
-	addr_t awaddr;
-	logic awvalid;
-	logic awready;
-	len_t awlen;
-	size_t awsize;
-	burst_t awburst;
+   // Master Interface Write Response Ports
+    wire [1:0]                    m_axi_bresp,
+    wire                          m_axi_bvalid,
+    wire                          m_axi_bready,
 
-	// Write Data Channel
-	data_t wdata;
-	strb_t wstrb;
-	logic wvalid;
-	logic wready;
-	logic wlast;
+   // Master Interface Read Address Ports
+    wire [C_AXI_ADDR_WIDTH-1:0]   m_axi_araddr,
+    wire                          m_axi_arvalid,
+    wire                          m_axi_arready,
 
-	// Write Response Channel
-	resp_t bresp;
-	logic bvalid;
-	logic bready;
+   // Master Interface Read Data Ports
+    wire [C_AXI_DATA_WIDTH-1:0]   m_axi_rdata,
+    wire [1:0]                    m_axi_rresp,
+    wire                          m_axi_rvalid,
+    wire                          m_axi_rready,
 
+   // Slave Interface Write Address Ports
+    wire [C_AXI_ADDR_WIDTH-1:0]   s_axi_awaddr,
+    wire                          s_axi_awvalid,
+    wire                          s_axi_awready,
 
-	modport master (
-		output araddr, arvalid, input arready, output arlen, arsize, arburst,
-		input rdata, rresp, rvalid, output rready, input rlast,
-		output awaddr, awvalid, input awready, output awlen, awsize, awburst,
-		output 	wdata, wstrb, wvalid, input wready, output wlast,
-		input bresp, bvalid, output bready
-	);
+   // Slave Interface Write Data Ports
+    wire [C_AXI_DATA_WIDTH-1:0]   s_axi_wdata,  
+    wire [C_AXI_DATA_WIDTH/8-1:0] s_axi_wstrb,
+    wire                          s_axi_wvalid,
+    wire                          s_axi_wready,
 
-	modport slave (
-		input araddr, arvalid, output arready, input arlen, arsize, arburst,
-		output rdata, rresp, rvalid, input rready, output rlast,
-		input awaddr, awvalid, output awready, input awlen, awsize, awburst,
-		input 	wdata, wstrb, wvalid, output wready, input wlast,
-		output bresp, bvalid, input bready
-	);
+   // Slave Interface Write Response Ports
+    wire [1:0]                    s_axi_bresp,
+    wire                          s_axi_bvalid,
+    wire                          s_axi_bready,
 
+   // Slave Interface Read Address Ports
+    wire [C_AXI_ADDR_WIDTH-1:0]   s_axi_araddr,
+    wire                          s_axi_arvalid,
+    wire                          s_axi_arready,
+
+   // Slave Interface Read Response Ports
+    wire [C_AXI_DATA_WIDTH-1:0]   s_axi_rdata,
+    wire [1:0]                    s_axi_rresp,
+    wire                          s_axi_rvalid,
+    wire                          s_axi_rready
+);
+    // master Modport
+    modport master(
+        output m_axi_awaddr, m_axi_awvalid, m_axi_wdata, m_axi_wstrb, 
+        m_axi_wvalid, m_axi_bready, m_axi_araddr, m_axi_arvalid, m_axi_rready,
+
+        input aclk, aresetn, m_axi_awready, m_axi_wready, m_axi_bresp, 
+        m_axi_bvalid, m_axi_arready, m_axi_rdata, m_axi_rresp, m_axi_rvalid
+    );
+
+    // Slave Modport
+    modport slave(
+        input s_axi_awaddr, s_axi_awvalid, s_axi_wdata, s_axi_wstrb, s_axi_wvalid, 
+        s_axi_bready, s_axi_araddr, s_axi_arvalid, s_axi_rready,
+
+        output aclk, aresetn, s_axi_awready, s_axi_wready, s_axi_bresp, s_axi_bvalid, 
+        s_axi_arready, s_axi_rdata, s_axi_rresp, s_axi_rvalid
+    );
 endinterface
 
-interface cache_ctrl_l1_intf;
-    // Control signals from the Cache Controller to L1 Cache
-    logic       op_valid;
-    logic[31:0] op_addr;
-    logic       op_type; // 0 for read, 1 for write
-    logic[31:0] write_data;
-    logic       flush; // Signal to flush or invalidate cache lines if needed
+interface ModifiedHarvardCPUtoL1 #(
+    parameter ADDR_WIDTH = 32,  // Address width for data
+    parameter DATA_WIDTH = 32   // Data width
+);
 
-    // Status and data signals from L1 Cache to Cache Controller
-    logic       ready; // Indicates L1 Cache has completed the operation
-    logic[31:0] read_data;
-    logic       hit; // Indicates if the operation was a hit or miss in the L1 Cache
+    // Data Path Signals
+    logic [ADDR_WIDTH-1:0] data_addr;   // Address for data operations
+    logic [DATA_WIDTH-1:0] data_in;     // Data to write into the cache
+    logic [DATA_WIDTH-1:0] data_out;    // Data read from the cache
+    logic data_valid;                   // Indicates if the read data is valid
+    logic data_ready;                   // Cache ready for a data operation
 
-    // Modports for access control
-    modport controller_side (
-        output op_valid, op_addr, op_type, write_data, flush,
-        input ready, read_data, hit
+    // Control Signals
+    logic read_enable;   // Enable reading from cache
+    logic write_enable;  // Enable writing to cache
+    logic cache_enable;  // Enable cache operation
+    logic invalidate;    // Invalidate cache content
+    
+    // Synchronization Signals
+    logic cache_busy;    // Indicates the cache is currently processing an operation
+
+endinterface;
+
+interface axi4_lite_short_interface #(
+    parameter DATA_WIDTH = 32,  // Width of the data bus
+    parameter ADDR_WIDTH = 32,  // Width of the address bus
+    parameter USER_WIDTH = 1    // Optional user-defined signal width
+) ();
+
+    // Global signals
+    logic aclk;   
+    logic aresetn; 
+
+    // Write address channel signals
+    logic [ADDR_WIDTH-1:0] awaddr;
+    logic [7:0] awlen;
+    logic [2:0] awsize;
+    logic [1:0] awburst;
+    logic awlock;
+    logic [3:0] awcache;
+    logic [2:0] awprot;
+    logic awvalid;
+    logic awready;
+
+    // Write data channel signals
+    logic [DATA_WIDTH-1:0] wdata;
+    logic [DATA_WIDTH/8-1:0] wstrb;
+    logic wlast;
+    logic wvalid;
+    logic wready;
+
+    // Write response channel signals
+    logic [1:0] bresp;
+    logic bvalid;
+    logic bready;
+
+    // Read address channel signals
+    logic [ADDR_WIDTH-1:0] araddr;
+    logic [7:0] arlen;
+    logic [2:0] arsize;
+    logic [1:0] arburst;
+    logic arlock;
+    logic [3:0] arcache;
+    logic [2:0] arprot;
+    logic arvalid;
+    logic arready;
+
+    // Read data channel signals
+    logic [DATA_WIDTH-1:0] rdata;
+    logic [1:0] rresp;
+    logic rlast;
+    logic rvalid;
+    logic rready;
+
+    // Optional user-defined signals
+    logic [USER_WIDTH-1:0] awuser;
+    logic [USER_WIDTH-1:0] wuser;
+    logic [USER_WIDTH-1:0] buser;
+    logic [USER_WIDTH-1:0] aruser;
+    logic [USER_WIDTH-1:0] ruser;
+
+    // Modports for Master and Slave
+    modport master (
+        // Inputs to Master
+        input aclk, aresetn,
+        input awready, wready,
+        input bresp, bvalid,
+        input arready,
+        input rdata, rresp, rlast, rvalid,
+        
+        // Outputs from Master
+        output awaddr, awlen, awsize, awburst, awlock, awcache, awprot, awvalid,
+        output wdata, wstrb, wlast, wvalid,
+        output bready,
+        output araddr, arlen, arsize, arburst, arlock, arcache, arprot, arvalid,
+        output rready
     );
-
-    modport cache_side (
-        input op_valid, op_addr, op_type, write_data, flush,
-        output ready, read_data, hit
+    
+    modport slave (
+        // Inputs to Slave
+        input aclk, aresetn,
+        input awaddr, awlen, awsize, awburst, awlock, awcache, awprot, awvalid,
+        input wdata, wstrb, wlast, wvalid,
+        input bready,
+        input araddr, arlen, arsize, arburst, arlock, arcache, arprot, arvalid,
+        input rready,
+        
+        // Outputs from Slave
+        output awready, wready,
+        output bresp, bvalid,
+        output arready,
+        output rdata, rresp, rlast, rvalid
     );
-
 endinterface
 
+interface axi4_lite_main_interface #(
+   parameter C_AXI_PROTOCOL                      = 0,
+   parameter C_AXI_INTERFACE_MODE                = 1,  //master, slave and bypass
+   parameter integer C_AXI_ADDR_WIDTH            = 32,
+   parameter integer C_AXI_WDATA_WIDTH           = 32,
+   parameter integer C_AXI_RDATA_WIDTH           = 32,
+)(
+   // System Signals
+   input wire aclk,
+   input wire aclken,
+   input wire aresetn,
 
-interface l1_l2_intf;
-    // L1 Cache request signals
-    logic       l1_req_valid;
-    logic[31:0] l1_req_addr;
-    logic       l1_req_op; // 0 for read, 1 for write
-    logic[31:0] l1_write_data;
+   // Slave Interface Write Address Ports
+   input  wire [C_AXI_ADDR_WIDTH-1:0]                              s_axi_awaddr,
+   input  wire [((C_AXI_PROTOCOL == 1) ? 4 : 8)-1:0]               s_axi_awlen,
+   input  wire [3-1:0]                                             s_axi_awsize,
+   input  wire [2-1:0]                                             s_axi_awburst,
+   input  wire [((C_AXI_PROTOCOL == 1) ? 2 : 1)-1:0]               s_axi_awlock,
+   input  wire [4-1:0]                                             s_axi_awcache,
+   input  wire [3-1:0]                                             s_axi_awprot,
+   input  wire [4-1:0]                                             s_axi_awregion,
+   input  wire [4-1:0]                                             s_axi_awqos,
+   input  wire                                                     s_axi_awvalid,
+   output wire                                                     s_axi_awready,
 
-    // L2 Cache response signals
-    logic       l2_resp_valid;
-    logic[31:0] l2_resp_data;
-    logic       l2_miss; // Indicates a miss in L2
+   // Slave Interface Write Data Ports
+   input  wire [C_AXI_WDATA_WIDTH-1:0]                             s_axi_wdata,
+   input  wire [C_AXI_WDATA_WIDTH/8==0 ?0:C_AXI_WDATA_WIDTH/8-1:0] s_axi_wstrb,
+   input  wire                                                     s_axi_wlast,
+   input  wire                                                     s_axi_wvalid,
+   output wire                                                     s_axi_wready,
 
-    // Modports
-    modport l1_side (
-        output l1_req_valid, l1_req_addr, l1_req_op, l1_write_data,
-        input l2_resp_valid, l2_resp_data, l2_miss
-    );
+   // Slave Interface Write Response Ports
+   output wire [2-1:0]                                             s_axi_bresp,
+   output wire                                                     s_axi_bvalid,
+   input  wire                                                     s_axi_bready,
 
-    modport l2_side (
-        input l1_req_valid, l1_req_addr, l1_req_op, l1_write_data,
-        output l2_resp_valid, l2_resp_data, l2_miss
-    );
+   // Slave Interface Read Address Ports
+   input  wire [C_AXI_ADDR_WIDTH-1:0]                              s_axi_araddr,
+   input  wire [((C_AXI_PROTOCOL == 1) ? 4 : 8)-1:0]               s_axi_arlen,
+   input  wire [3-1:0]                                             s_axi_arsize,
+   input  wire [2-1:0]                                             s_axi_arburst,
+   input  wire [((C_AXI_PROTOCOL == 1) ? 2 : 1)-1:0]               s_axi_arlock,
+   input  wire [4-1:0]                                             s_axi_arcache,
+   input  wire [3-1:0]                                             s_axi_arprot,
+   input  wire [4-1:0]                                             s_axi_arregion,
+   input  wire [4-1:0]                                             s_axi_arqos,
+   input  wire                                                     s_axi_arvalid,
+   output wire                                                     s_axi_arready,
 
-endinterface
-
-interface l2_mem_intf;
-    // Memory access request signals
-    logic       mem_req_valid;
-    logic[31:0] mem_req_addr;
-    logic       mem_req_op; // 0 for read, 1 for write
-    logic[31:0] mem_write_data;
-
-    // Memory access response signals
-    logic       mem_resp_valid;
-    logic[31:0] mem_resp_data;
-
-    // Modports
-    modport cache_side (
-        output mem_req_valid, mem_req_addr, mem_req_op, mem_write_data,
-        input mem_resp_valid, mem_resp_data
-    );
-
-    modport mem_side (
-        input mem_req_valid, mem_req_addr, mem_req_op, mem_write_data,
-        output mem_resp_valid, mem_resp_data
-    );
-
-endinterface
-
-
-
+   // Slave Interface Read Data Ports
+   output wire [C_AXI_RDATA_WIDTH-1:0]                             s_axi_rdata,
+   output wire [2-1:0]                                             s_axi_rresp,
+   output wire                                                     s_axi_rlast,
+   output wire                                                     s_axi_rvalid,
+   input  wire                                                     s_axi_rready,
+   
+   // Master Interface Write Address Port
+   output wire [C_AXI_ADDR_WIDTH-1:0]                              m_axi_awaddr,
+   output wire [((C_AXI_PROTOCOL == 1) ? 4 : 8)-1:0]               m_axi_awlen,
+   output wire [3-1:0]                                             m_axi_awsize,
+   output wire [2-1:0]                                             m_axi_awburst,
+   output wire [((C_AXI_PROTOCOL == 1) ? 2 : 1)-1:0]               m_axi_awlock,
+   output wire [4-1:0]                                             m_axi_awcache,
+   output wire [3-1:0]                                             m_axi_awprot,
+   output wire [4-1:0]                                             m_axi_awregion,
+   output wire [4-1:0]                                             m_axi_awqos,
+   output wire                                                     m_axi_awvalid,
+   input  wire                                                     m_axi_awready,
+   
+   // Master Interface Write Data Ports
+   output wire [C_AXI_WDATA_WIDTH-1:0]                             m_axi_wdata,
+   output wire [C_AXI_WDATA_WIDTH/8 ==0?0:C_AXI_WDATA_WIDTH/8-1:0] m_axi_wstrb,
+   output wire                                                     m_axi_wlast,
+   output wire                                                     m_axi_wvalid,
+   input  wire                                                     m_axi_wready,
+   
+   // Master Interface Write Response Ports
+   input  wire [2-1:0]                                             m_axi_bresp,
+   input  wire                                                     m_axi_bvalid,
+   output wire                                                     m_axi_bready,
+   
+   // Master Interface Read Address Port
+   output wire [ C_AXI_ADDR_WIDTH-1:0]                             m_axi_araddr,
+   output wire [((C_AXI_PROTOCOL == 1) ? 4 : 8)-1:0]               m_axi_arlen,
+   output wire [3-1:0]                                             m_axi_arsize,
+   output wire [2-1:0]                                             m_axi_arburst,
+   output wire [((C_AXI_PROTOCOL == 1) ? 2 : 1)-1:0]               m_axi_arlock,
+   output wire [4-1:0]                                             m_axi_arcache,
+   output wire [3-1:0]                                             m_axi_arprot,
+   output wire [4-1:0]                                             m_axi_arregion,
+   output wire [4-1:0]                                             m_axi_arqos,
+   output wire                                                     m_axi_arvalid,
+   input  wire                                                     m_axi_arready,
+   
+   // Master Interface Read Data Ports
+   input  wire [C_AXI_RDATA_WIDTH-1:0]                             m_axi_rdata,
+   input  wire [2-1:0]                                             m_axi_rresp,
+   input  wire                                                     m_axi_rlast,
+   input  wire                                                     m_axi_rvalid,
+   output wire                                                     m_axi_rready
+  );
+endinterface 

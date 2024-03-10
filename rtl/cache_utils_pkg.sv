@@ -1,33 +1,52 @@
-package axi_pkg;
+package axi4_pkg;
+  // AXI4 Interface Constants
+  localparam ADDR_WIDTH = 32; // Address width
+  localparam DATA_WIDTH = 32; // Data width
+  localparam ID_WIDTH = 4;    // ID width for transactions
+  localparam USER_WIDTH = 1;  // User signal width, adjust as needed
 
-	localparam ADDR_WIDTH = 32;
-	localparam DATA_WIDTH = 32;
-	localparam STRB_WIDTH = DATA_WIDTH / 8;
+  // Burst type definitions
+  typedef enum {
+	FIXED = 2'b00, 
+	INCR = 2'b01, 
+	WRAP = 2'b10
+  } axi_burst_type_e;
 
-	localparam SIZE_1_BYTE   = 3'b000;
-	localparam SIZE_2_BYTE   = 3'b001;
-	localparam SIZE_4_BYTE   = 3'b010;
-	localparam SIZE_8_BYTE   = 3'b011;
-	localparam SIZE_16_BYTE  = 3'b100;
-	localparam SIZE_32_BYTE  = 3'b101;
-	localparam SIZE_64_BYTE  = 3'b110;
-	localparam SIZE_128_BYTE = 3'b111;
+  // Response type definitions
+  typedef enum {
+	OKAY = 2'b00, 
+	EXOKAY = 2'b01, 
+	SLVERR = 2'b10, 
+	DECERR = 2'b11
+  } axi_resp_e;
 
-	localparam BURST_FIXED = 2'b00;
-	localparam BURST_INCR  = 2'b01;
-	localparam BURST_WRAP  = 2'b10;
+  // AXI AR and AW cache type encoding
+  typedef enum {
+	NON_CACHEABLE = 4'b0000, 
+	WRITE_THROUGH = 4'b0001, 
+	WRITE_BACK = 4'b0011
+  } axi_cache_type_e;
 
-	localparam RESP_OKAY   = 2'b00;
-	localparam RESP_EXOKAY = 2'b01;
-	localparam RESP_SLVERR = 2'b10;
-	localparam RESP_DECERR = 2'b11;
+  // AXI AR and AW protection type encoding
+  typedef enum {
+    DEFAULT = 3'b000, // Normal, non-secure, data access
+    PRIVILEGED = 3'b001,
+    SECURE = 3'b010,
+    SECURE_PRIVILEGED = 3'b011
+  } axi_prot_type_e;
 
-	typedef logic [ADDR_WIDTH - 1 : 0] addr_t;
-	typedef logic [DATA_WIDTH - 1 : 0] data_t;
-	typedef logic [STRB_WIDTH - 1 : 0] strb_t;
-	typedef logic [7 : 0] len_t;
-	typedef logic [2 : 0] size_t;
-	typedef logic [1 : 0] burst_t;
-	typedef logic [1 : 0] resp_t;
-    
+  // AXI lock type definitions
+  typedef enum {
+	NORMAL = 1'b0, 
+	EXCLUSIVE = 1'b1
+  } axi_lock_type_e;
+
+  // Utility function: AXI burst length calculator
+  // Given a start address and a byte count, calculate the AXI burst length required
+  function automatic [7:0] calc_axi_burst_length(input [ADDR_WIDTH-1:0] start_addr, input int byte_count);
+    int aligned_end_addr = (start_addr + byte_count - 1) >> log2(DATA_WIDTH/8);
+    int aligned_start_addr = start_addr >> log2(DATA_WIDTH/8);
+    return (aligned_end_addr - aligned_start_addr + 1);
+  endfunction
+
 endpackage
