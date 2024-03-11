@@ -7,8 +7,7 @@ module l1_cache(
                 ASSOCIATIVITY = 2,          // 2-way
                 DATA_WIDTH    = 32,         // 32 bits
                 INDEX_WIDTH   = $clog2(CACHE_SIZE / (BLOCK_SIZE * ASSOCIATIVITY)),
-                TAG_WIDTH     = 32 - INDEX_WIDTH - $clog2(BLOCK_SIZE),
-                NUM_SETS      = CACHE_SIZE/(BLOCK_SIZE * ASSOCIATIVITY); // 512 sets
+                TAG_WIDTH     = 32 - INDEX_WIDTH - $clog2(BLOCK_SIZE);
 
     logic [ASSOCIATIVITY -1:0] lru_way;
     logic [INDEX_WIDTH-1:0] addr_index;
@@ -19,7 +18,7 @@ module l1_cache(
     
     // LRU Function
     reg [ASSOCIATIVITY -1:0] max_count;
-    reg [ASSOCIATIVITY -1:0] lru_counter [0: NUM_SETS-1];
+    reg [(1>>ASSOCIATIVITY) -1:0] lru_counter [0: (1<<INDEX_WIDTH)-1][0: ASSOCIATIVITY-1];
 
     // Cache Memory
     typedef struct packed {
@@ -28,14 +27,14 @@ module l1_cache(
         logic [TAG_WIDTH-1:0] tag;
         logic [DATA_WIDTH-1:0] data;
     } cache_line_t;
-    cache_line_t cache_mem[0:ASSOCIATIVITY-1][0:(1<<INDEX_WIDTH)-1];
+    cache_line_t cache_mem [0: (1<<INDEX_WIDTH)-1][0:ASSOCIATIVITY-1];
 
     // FSM
     typedef enum integer {IDLE, CHECK_TAG, WRITE_BACK, FILL} cache_state_t;
     cache_state_t state, next_state;
 
     always_ff @(posedge cpu_l1_if.s_axi_aclk or negedge cpu_l1_if.s_axi_aresetn) begin
-        if (!cpu_l1_if.aresetn) begin
+        if (!cpu_l1_if.s_axi_aresetn) begin
             state <= IDLE; 
             reset_cache();
         end else begin
@@ -49,18 +48,19 @@ module l1_cache(
                 // reset_signals();
                 if(cpu_l1_if.s_axi_awvalid) begin
                     addr_tag   = cpu_l1_if.s_axi_awaddr[31:32-TAG_WIDTH] ;
-                    addr_index = cpu_l1_if.awaddr[32-TAG_WIDTH-1:32-TAG_WIDTH-INDEX_WIDTH];
+                    addr_index = cpu_l1_if.s_axi_awaddr[32-TAG_WIDTH-1:32-TAG_WIDTH-INDEX_WIDTH];
                     next_state = CHECK_TAG;
                 end else if (cpu_l1_if.s_axi_arvalid) begin
                     addr_tag   = cpu_l1_if.s_axi_araddr[31:32-TAG_WIDTH] ;
-                    addr_index = cpu_l1_if.araddr[32-TAG_WIDTH-1:32-TAG_WIDTH-INDEX_WIDTH];
+                    addr_index = cpu_l1_if.s_axi_araddr[32-TAG_WIDTH-1:32-TAG_WIDTH-INDEX_WIDTH];
                     next_state = CHECK_TAG;
                 end else begin
                     next_state = IDLE;  
                 end
-            end CHECK_TAG:  check_tag();           
+            end 
+            CHECK_TAG:  check_tag();           
             WRITE_BACK: write_back();
-            FILL:       fill();               
+            FILL:       cache_fill();               
             default:    next_state = IDLE; 
         endcase
     end
@@ -68,9 +68,10 @@ module l1_cache(
     // Utility Tasks
     task reset_cache;
         // Reset logic: Initialize cache to known state
-        for (int way = 0; way < ASSOCIATIVITY; way++) begin
-            for (int index = 0; index < (1 << INDEX_WIDTH); index++) begin
-                cache_mem[way][index] = '{valid: 0, dirty: 0, tag: 0, data: 0};
+        for (int i = 0; i < (1 << INDEX_WIDTH); i++) begin
+            for (int j = 0; j < ASSOCIATIVITY; j++) begin           
+                cache_mem[i][j]   <= '{valid: 0, dirty: 0, tag: 0, data: 0};
+                lru_counter[i][j] <= j;
             end
         end
         // Default responses to CPU
@@ -80,15 +81,15 @@ module l1_cache(
 
     task reset_signals;
         // Default responses to CPU
-        cpu_l1_if.s_axi_awready <= 1'b0; 
-        cpu_l1_if.s_axi_wready  <= 1'b0;
-        cpu_l1_if.s_axi_bvalid  <= 1'b0;
-        cpu_l1_if.s_axi_bresp   <= 2'b00;
+        cpu_l1_if.s_axi_bready <= 1'b0; 
+        cpu_l1_if.s_axi_wready <= 1'b0;
+        cpu_l1_if.s_axi_bvalid <= 1'b0;
+        cpu_l1_if.s_axi_bresp  <= 2'b00;
 
-        cpu_l1_if.s_axi_arready <= 1'b0;
-        cpu_l1_if.s_axi_rvalid  <= 1'b0;
-        cpu_l1_if.s_axi_rdata   <= 1'b0;
-        cpu_l1_if.s_axi_rresp   <= 2'b00;
+        cpu_l1_if.s_axi_rready <= 1'b0;
+        cpu_l1_if.s_axi_rvalid <= 1'b0;
+        cpu_l1_if.s_axi_rdata  <= 1'b0;
+        cpu_l1_if.s_axi_rresp  <= 2'b00;
     endtask
 
     task check_tag;
@@ -134,7 +135,7 @@ module l1_cache(
     endtask
 
     task write_back;
-        l1_l2_if.m_axi_awaddr  = cpu_l1_if.s_axi_araddr;
+        l1_l2_if.m_axi_awaddr  = {cache_mem[addr_index][lru_way].tag, addr_index, {$clog2(BLOCK_SIZE){1'b0}}};
         l1_l2_if.m_axi_awvalid = 1'B1;
         l1_l2_if.m_axi_wdata   = cache_mem[lru_way][addr_index].data;
         //waiting for L2
