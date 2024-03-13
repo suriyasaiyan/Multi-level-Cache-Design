@@ -1,6 +1,6 @@
 import axi_pkg::*;
 
- interface axi4_lite_interface #(
+interface axi4_lite_interface #(
    parameter integer C_AXI_ADDR_WIDTH = 32,
    parameter integer C_AXI_DATA_WIDTH = 32
 )(
@@ -83,122 +83,8 @@ import axi_pkg::*;
     );
 endinterface
 
-interface ModifiedHarvardCPUtoL1 #(
-    parameter ADDR_WIDTH = 32,  // Address width for data
-    parameter DATA_WIDTH = 32   // Data width
-);
 
-    // Data Path Signals
-    logic [ADDR_WIDTH-1:0] data_addr;   // Address for data operations
-    logic [DATA_WIDTH-1:0] data_in;     // Data to write into the cache
-    logic [DATA_WIDTH-1:0] data_out;    // Data read from the cache
-    logic data_valid;                   // Indicates if the read data is valid
-    logic data_ready;                   // Cache ready for a data operation
-
-    // Control Signals
-    logic read_enable;   // Enable reading from cache
-    logic write_enable;  // Enable writing to cache
-    logic cache_enable;  // Enable cache operation
-    logic invalidate;    // Invalidate cache content
-    
-    // Synchronization Signals
-    logic cache_busy;    // Indicates the cache is currently processing an operation
-
-endinterface;
-
-interface axi4_lite_short_interface #(
-    parameter DATA_WIDTH = 32,  // Width of the data bus
-    parameter ADDR_WIDTH = 32,  // Width of the address bus
-    parameter USER_WIDTH = 1    // Optional user-defined signal width
-) ();
-
-    // Global signals
-    logic aclk;   
-    logic aresetn; 
-
-    // Write address channel signals
-    logic [ADDR_WIDTH-1:0] awaddr;
-    logic [7:0] awlen;
-    logic [2:0] awsize;
-    logic [1:0] awburst;
-    logic awlock;
-    logic [3:0] awcache;
-    logic [2:0] awprot;
-    logic awvalid;
-    logic awready;
-
-    // Write data channel signals
-    logic [DATA_WIDTH-1:0] wdata;
-    logic [DATA_WIDTH/8-1:0] wstrb;
-    logic wlast;
-    logic wvalid;
-    logic wready;
-
-    // Write response channel signals
-    logic [1:0] bresp;
-    logic bvalid;
-    logic bready;
-
-    // Read address channel signals
-    logic [ADDR_WIDTH-1:0] araddr;
-    logic [7:0] arlen;
-    logic [2:0] arsize;
-    logic [1:0] arburst;
-    logic arlock;
-    logic [3:0] arcache;
-    logic [2:0] arprot;
-    logic arvalid;
-    logic arready;
-
-    // Read data channel signals
-    logic [DATA_WIDTH-1:0] rdata;
-    logic [1:0] rresp;
-    logic rlast;
-    logic rvalid;
-    logic rready;
-
-    // Optional user-defined signals
-    logic [USER_WIDTH-1:0] awuser;
-    logic [USER_WIDTH-1:0] wuser;
-    logic [USER_WIDTH-1:0] buser;
-    logic [USER_WIDTH-1:0] aruser;
-    logic [USER_WIDTH-1:0] ruser;
-
-    // Modports for Master and Slave
-    modport master (
-        // Inputs to Master
-        input aclk, aresetn,
-        input awready, wready,
-        input bresp, bvalid,
-        input arready,
-        input rdata, rresp, rlast, rvalid,
-        
-        // Outputs from Master
-        output awaddr, awlen, awsize, awburst, awlock, awcache, awprot, awvalid,
-        output wdata, wstrb, wlast, wvalid,
-        output bready,
-        output araddr, arlen, arsize, arburst, arlock, arcache, arprot, arvalid,
-        output rready
-    );
-    
-    modport slave (
-        // Inputs to Slave
-        input aclk, aresetn,
-        input awaddr, awlen, awsize, awburst, awlock, awcache, awprot, awvalid,
-        input wdata, wstrb, wlast, wvalid,
-        input bready,
-        input araddr, arlen, arsize, arburst, arlock, arcache, arprot, arvalid,
-        input rready,
-        
-        // Outputs from Slave
-        output awready, wready,
-        output bresp, bvalid,
-        output arready,
-        output rdata, rresp, rlast, rvalid
-    );
-endinterface
-
-interface axi4_lite_main_interface #(
+interface axi4_main_interface #(
    parameter C_AXI_PROTOCOL                      = 0,
    parameter C_AXI_INTERFACE_MODE                = 1,  //master, slave and bypass
    parameter integer C_AXI_ADDR_WIDTH            = 32,
