@@ -73,6 +73,10 @@ module cache_module#(
     import cache_util_pkg::*;
     
     reg awvalid_reg, arvalid_reg;
+
+    // Prefetch
+    reg [C_AXI_ADDR_WIDTH-1:0] prev_addr;
+    reg prefetch_signal;
     
     localparam INDEX_WIDTH   = $clog2(CACHE_SIZE /(BLOCK_SIZE * ASSOCIATIVITY)),
                TAG_WIDTH     = 32 -INDEX_WIDTH -$clog2(BLOCK_SIZE);
@@ -85,8 +89,7 @@ module cache_module#(
     int way, index;
     
     // LRU Function
-    reg [ASSOCIATIVITY -1:0] max_count;
-    reg [(1>>ASSOCIATIVITY) -1:0] lru_counter [0: (1<<INDEX_WIDTH)-1][0: ASSOCIATIVITY-1];
+    reg [$clog2(ASSOCIATIVITY) -1:0] lru_counter [0: (1<<INDEX_WIDTH)-1][0: ASSOCIATIVITY-1];
 
     // Cache Memory
     typedef struct packed {
@@ -159,6 +162,8 @@ module cache_module#(
         // regs
         awvalid_reg      <= 1'b0;
         arvalid_reg      <= 1'b0;
+        prefetch_signal  <= 1'b0;
+
         // Default responses to CPU
         s_l1_axi_awready <= 1'b0;
         s_l1_axi_wready  <= 1'b0;
@@ -168,6 +173,7 @@ module cache_module#(
         s_l1_axi_rresp   <= 2'b00;
         s_l1_axi_rdata   <= 32'hDEADBEEF;
         s_l1_axi_rvalid  <= 1'b0;
+        
         // Default responses to CPU
         m_l1_axi_awaddr  <= 32'hDEADBEEF;
         m_l1_axi_awvalid <= 1'b0;
@@ -322,9 +328,8 @@ module cache_module#(
     // LRU Function
     function integer get_lru_way(input int set_index);
         begin
-            max_count = 0;
-            //max_count = -1; -1 here is 32'hFFFFFFFF turnication happens and max_count will be 3
-            lru_way = 0;
+            integer max_count = -1;
+            integer lru_way = 0;
             for (int i = 0; i < ASSOCIATIVITY; i++) begin            
                 if (lru_counter[set_index][i] > max_count) begin
                     max_count = lru_counter[set_index][i];
