@@ -47,9 +47,13 @@ package cache_util_pkg;
 
     typedef enum integer {CH_RECV, CH_UPDT} ch_w_state_t;
     ch_w_state_t ch_w_state, ch_w_next_state;
+    
+    // Prefetch FSM states
+    typedef enum logic [1:0] {PF_ADDR, PF_DATA} prf_state_t;
+    prf_state_t pf_state, next_pf_state;
 
     // CACHE_FILL FSM
-    typedef enum integer {CF_ADDR, CF_DATA} cf_state_t;
+    typedef enum integer {CF_ADDR, CF_DECODE, CF_DATA} cf_state_t;
     cf_state_t cf_state, next_cf_state;
 
     // WRITE_BACK FSM
@@ -57,6 +61,6 @@ package cache_util_pkg;
     wb_state_t wb_state, next_wb_state;
 
     // MAIN FSM
-    typedef enum integer {IDLE, CHECK_TAG, CACHE_HIT, WRITE_BACK, FILL} cache_state_t;
+    typedef enum integer {IDLE, CHECK_TAG, CACHE_HIT, PREFETCH, WRITE_BACK, FILL} cache_state_t;
     cache_state_t state, next_state;
 endpackage
